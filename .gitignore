@@ -27,3 +27,4 @@ env.yaml
 untracked
 .so
 .o
+.history/

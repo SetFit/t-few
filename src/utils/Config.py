@@ -32,6 +32,7 @@ class Config(object):
         self.raft_validation_start = 0
         self.raft_labels_in_input_string = "comma"
         self.cleaned_answer_choices_b77 = False
+        self.train_split = 0
 
         # Compute backend configs
         self.compute_precision = "bf16"

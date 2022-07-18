@@ -1,16 +1,16 @@
-import os
-import torch
 import argparse
+import os
 from datetime import datetime
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
+import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
-
-from src.data import FinetuneDataModule, get_dataset_reader, PretrainDataModule
+from src.data import FinetuneDataModule, PretrainDataModule, get_dataset_reader
 from src.models.EncoderDecoder import EncoderDecoder
 from src.models.modify_model import modify_transformer
 from src.utils.Config import Config
 from src.utils.util import ParseKwargs, set_seeds
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 
 def get_transformer(config):

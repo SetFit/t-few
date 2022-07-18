@@ -1,5 +1,7 @@
-conda activate tfew
+conda activate baselines-tfew
 export NICL_ROOT=`pwd`
-export PYTHONPATH=$NICL_ROOT:$PYTHONPATH
-export OUTPUT_PATH=$NICL_ROOT/exp_out
-export CONFIG_PATH=$NICL_ROOT/configs
+export SCRIPTS_ROOT="$(dirname "$NICL_ROOT")"
+export SETFIT_ROOT="$(dirname "$SCRIPTS_ROOT")"
+export PYTHONPATH=$SETFIT_ROOT:"$SETFIT_ROOT/src":$NICL_ROOT/t-few:$PYTHONPATH
+export OUTPUT_PATH=$NICL_ROOT/results
+export CONFIG_PATH=$NICL_ROOT/t-few/configs

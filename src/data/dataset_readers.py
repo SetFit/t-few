@@ -1,15 +1,17 @@
-import os
-import json
-import numpy as np
-from datasets import load_dataset, load_from_disk
-from promptsource.templates import DatasetTemplates
-import pkg_resources
-from promptsource import templates
 import csv
-from typing import Dict, List, Optional, Tuple
+import json
+import os
 import re
-import pandas as pd
+from typing import Dict, List, Optional, Tuple
 
+import numpy as np
+import pandas as pd
+import pkg_resources
+from datasets import load_dataset, load_from_disk
+from promptsource import templates
+from promptsource.templates import DatasetTemplates
+
+from scripts.utils import load_data_splits
 
 def get_dataset_reader(config):
     dataset_class = {
@@ -36,6 +38,7 @@ def get_dataset_reader(config):
         "tweet_eval_hate": RaftReader,
         "twitter_complaints": RaftReader,
         "semiconductor_org_types": RaftReader,
+        "sst2": SetFitReader
     }[config.dataset]
     return dataset_class(config)
 
@@ -143,7 +146,7 @@ class BaseDatasetReader(object):
         if os.path.exists(DATASETS_OFFLINE):
             orig_data = load_from_disk(os.path.join(DATASETS_OFFLINE, *self.dataset_stash))[split]
         else:
-            orig_data = load_dataset(*self.dataset_stash, split=split, cache_dir=os.environ["HF_HOME"])
+            orig_data = load_dataset(*self.dataset_stash, split=split)
         return orig_data
 
     def read_few_shot_dataset(self):
@@ -183,6 +186,35 @@ class BaseDatasetReader(object):
         accuracy = sum(matching) / len(matching)
         return {"accuracy": accuracy}
 
+class SetFitReader(BaseDatasetReader):
+    def __init__(self, config):
+        super().__init__(config, dataset_stash=(("glue", config.dataset)))
+        self.dataset = self.config.dataset
+        self.num_shot = self.config.num_shot
+        self.train_split = self.config.train_split
+        self.train_splits = None
+        self.test_split = None
+        
+    # def compute_metric(self, accumulated): 
+    #     # TODO: implement metrics other than "accuracy" for setfit dev/test datasets
+    #     pass
+
+    def read_orig_dataset(self, split):
+        data_split = None
+        if self.train_splits is None or self.test_split is None:
+            sample_sizes = [self.num_shot]
+            self.train_splits, self.test_split = \
+                load_data_splits(dataset=self.dataset, sample_sizes=sample_sizes)
+        
+        if split == "validation":
+            return self.test_split
+        else: # split == "train":
+            assert split == "train"
+            return self.train_splits
+
+    def read_few_shot_dataset(self):
+        train_splits = self.read_orig_dataset("train")
+        return train_splits[f"train-{self.num_shot}-{self.train_split}"]
 
 class StoryClozeReader(BaseDatasetReader):
     def __init__(self, config):
