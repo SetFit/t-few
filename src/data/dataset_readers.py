@@ -200,21 +200,27 @@ class SetFitReader(BaseDatasetReader):
     #     pass
 
     def read_orig_dataset(self, split):
-        data_split = None
         if self.train_splits is None or self.test_split is None:
             sample_sizes = [self.num_shot]
             self.train_splits, self.test_split = \
                 load_data_splits(dataset=self.dataset, sample_sizes=sample_sizes)
-        
+
         if split == "validation":
-            return self.test_split
+            orig_test_split = [example for example in self.test_split]
+            for idx, example in enumerate(orig_test_split):
+                example["idx"] = idx
+            return orig_test_split
         else: # split == "train":
             assert split == "train"
             return self.train_splits
 
     def read_few_shot_dataset(self):
         train_splits = self.read_orig_dataset("train")
-        return train_splits[f"train-{self.num_shot}-{self.train_split}"]
+        selected_train_split = train_splits[f"train-{self.num_shot}-{self.train_split}"]
+        orig_train_split = [example for example in selected_train_split]
+        for idx, example in enumerate(orig_train_split):
+            example["idx"] = idx
+        return orig_train_split
 
 class StoryClozeReader(BaseDatasetReader):
     def __init__(self, config):
