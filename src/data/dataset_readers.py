@@ -38,7 +38,9 @@ def get_dataset_reader(config):
         "tweet_eval_hate": RaftReader,
         "twitter_complaints": RaftReader,
         "semiconductor_org_types": RaftReader,
-        "sst2": SetFitReader
+        "sst2": SetFitReader,
+        "emotion": SetFitReader,
+        "ag_news": SetFitReader
     }[config.dataset]
     return dataset_class(config)
 
@@ -188,7 +190,7 @@ class BaseDatasetReader(object):
 
 class SetFitReader(BaseDatasetReader):
     def __init__(self, config):
-        super().__init__(config, dataset_stash=(("glue", config.dataset)))
+        super().__init__(config, dataset_stash=(config.dataset,))
         self.dataset = self.config.dataset
         self.num_shot = self.config.num_shot
         self.train_split = self.config.train_split
