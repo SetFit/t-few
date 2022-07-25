@@ -13,6 +13,7 @@ from promptsource.templates import DatasetTemplates
 
 from scripts.utils import load_data_splits
 
+
 def get_dataset_reader(config):
     dataset_class = {
         "T0Mixture": T0MixtureReader,
@@ -38,7 +39,9 @@ def get_dataset_reader(config):
         "tweet_eval_hate": RaftReader,
         "twitter_complaints": RaftReader,
         "semiconductor_org_types": RaftReader,
-        "sst2": SetFitReader
+        "sst2": SetFitGlueReader,
+        "emotion": SetFitReader,
+        "ag_news": SetFitReader
     }[config.dataset]
     return dataset_class(config)
 
@@ -186,15 +189,16 @@ class BaseDatasetReader(object):
         accuracy = sum(matching) / len(matching)
         return {"accuracy": accuracy}
 
-class SetFitReader(BaseDatasetReader):
-    def __init__(self, config):
-        super().__init__(config, dataset_stash=(("glue", config.dataset)))
+
+class SetFitReaderBase(BaseDatasetReader):
+    def __init__(self, config, dataset_stash):
+        super().__init__(config, dataset_stash=dataset_stash)
         self.dataset = self.config.dataset
         self.num_shot = self.config.num_shot
         self.train_split = self.config.train_split
         self.train_splits = None
         self.test_split = None
-        
+
     # def compute_metric(self, accumulated): 
     #     # TODO: implement metrics other than "accuracy" for setfit dev/test datasets
     #     pass
@@ -221,6 +225,14 @@ class SetFitReader(BaseDatasetReader):
         for idx, example in enumerate(orig_train_split):
             example["idx"] = idx
         return orig_train_split
+
+class SetFitReader(SetFitReaderBase):
+    def __init__(self, config):
+        super().__init__(config, dataset_stash=(config.dataset,))
+
+class SetFitGlueReader(SetFitReaderBase):
+    def __init__(self, config):
+        super().__init__(config, dataset_stash=(("glue", config.dataset)))
 
 class StoryClozeReader(BaseDatasetReader):
     def __init__(self, config):
