@@ -1,17 +1,18 @@
 import argparse
+from fileinput import filename
 import os
 from datetime import datetime
 
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.profilers import AdvancedProfiler
 from src.data import FinetuneDataModule, PretrainDataModule, get_dataset_reader
 from src.models.EncoderDecoder import EncoderDecoder
 from src.models.modify_model import modify_transformer
 from src.utils.Config import Config
 from src.utils.util import ParseKwargs, set_seeds
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-
 
 def get_transformer(config):
     tokenizer = AutoTokenizer.from_pretrained(config.origin_model)
@@ -38,8 +39,10 @@ def main(config):
         datamodule = FinetuneDataModule(config, tokenizer, dataset_reader)
     model = EncoderDecoder(config, tokenizer, model, dataset_reader)
     logger = TensorBoardLogger(config.exp_dir, name="log")
+    profiler = AdvancedProfiler(dirpath=config.exp_dir, filename="infernece_time.txt")
 
     trainer = Trainer(
+        profiler=profiler,
         enable_checkpointing=False,
         gpus=torch.cuda.device_count(),
         precision=config.compute_precision,
@@ -55,7 +58,7 @@ def main(config):
         gradient_clip_val=config.grad_clip_norm,
     )
     trainer.fit(model, datamodule)
-
+    trainer.validate(model, datamodule)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
