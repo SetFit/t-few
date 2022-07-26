@@ -6,7 +6,7 @@ from datetime import datetime
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.profilers import AdvancedProfiler
+from pytorch_lightning.profiler import AdvancedProfiler
 from src.data import FinetuneDataModule, PretrainDataModule, get_dataset_reader
 from src.models.EncoderDecoder import EncoderDecoder
 from src.models.modify_model import modify_transformer
@@ -41,6 +41,7 @@ def main(config):
     logger = TensorBoardLogger(config.exp_dir, name="log")
     profiler = AdvancedProfiler(dirpath=config.exp_dir, filename="infernece_time.txt")
 
+    profiler=AdvancedProfiler(dirpath=config.exp_dir, filename='inference_time.txt')
     trainer = Trainer(
         profiler=profiler,
         enable_checkpointing=False,
@@ -56,9 +57,13 @@ def main(config):
         check_val_every_n_epoch=config.eval_epoch_interval,
         accumulate_grad_batches=config.grad_accum_factor,
         gradient_clip_val=config.grad_clip_norm,
+        profiler=profiler
     )
-    trainer.fit(model, datamodule)
-    trainer.validate(model, datamodule)
+    
+    if config.num_steps > 0:
+        trainer.fit(model, datamodule)
+
+    trainer.validate(model, datamodule, verbose=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
