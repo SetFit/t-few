@@ -1,4 +1,5 @@
 conda activate baselines-tfew
+export CUDA_VISIBLE_DEVICES=0
 export NICL_ROOT=`pwd`
 export SCRIPTS_ROOT="$(dirname "$NICL_ROOT")"
 export SETFIT_ROOT="$(dirname "$SCRIPTS_ROOT")"

@@ -11,7 +11,7 @@ from src.models.modify_model import modify_transformer
 from src.utils.Config import Config
 from src.utils.util import ParseKwargs, set_seeds
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-
+from pytorch_lightning.profiler import AdvancedProfiler
 
 def get_transformer(config):
     tokenizer = AutoTokenizer.from_pretrained(config.origin_model)
@@ -39,6 +39,8 @@ def main(config):
     model = EncoderDecoder(config, tokenizer, model, dataset_reader)
     logger = TensorBoardLogger(config.exp_dir, name="log")
 
+
+    profiler=AdvancedProfiler(dirpath=config.exp_dir, filename='inference_time.txt')
     trainer = Trainer(
         enable_checkpointing=False,
         gpus=torch.cuda.device_count(),
@@ -53,8 +55,10 @@ def main(config):
         check_val_every_n_epoch=config.eval_epoch_interval,
         accumulate_grad_batches=config.grad_accum_factor,
         gradient_clip_val=config.grad_clip_norm,
+        profiler=profiler
     )
     trainer.fit(model, datamodule)
+    #trainer.validate(model,verbose=True)
 
 
 if __name__ == "__main__":
