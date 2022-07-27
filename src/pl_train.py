@@ -43,7 +43,6 @@ def main(config):
 
     profiler=AdvancedProfiler(dirpath=config.exp_dir, filename='inference_time.txt')
     trainer = Trainer(
-        profiler=profiler,
         enable_checkpointing=False,
         gpus=torch.cuda.device_count(),
         precision=config.compute_precision,
