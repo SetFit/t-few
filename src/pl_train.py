@@ -1,5 +1,4 @@
 import argparse
-from fileinput import filename
 import os
 from datetime import datetime
 
@@ -7,6 +6,8 @@ import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.profiler import SimpleProfiler
+
+from scripts.utils import Benchmark
 from src.data import FinetuneDataModule, PretrainDataModule, get_dataset_reader
 from src.models.EncoderDecoder import EncoderDecoder
 from src.models.modify_model import modify_transformer
@@ -31,34 +32,42 @@ def main(config):
     :return:
     """
 
-    tokenizer, model = get_transformer(config)
-    dataset_reader = get_dataset_reader(config)
-    if config.dataset == "T0Mixture":
-        datamodule = PretrainDataModule(config, tokenizer, dataset_reader)
-    else:
-        datamodule = FinetuneDataModule(config, tokenizer, dataset_reader)
-    model = EncoderDecoder(config, tokenizer, model, dataset_reader)
-    logger = TensorBoardLogger(config.exp_dir, name="log")
-    profiler = SimpleProfiler(dirpath=config.exp_dir, filename="elapsed_time.txt")
+    bench = Benchmark(out_path=f"{config.exp_dir}/elapsed_times.txt")
+    with bench.track("init"):
+        tokenizer, model = get_transformer(config)
+        dataset_reader = get_dataset_reader(config)
+        if config.dataset == "T0Mixture":
+            datamodule = PretrainDataModule(config, tokenizer, dataset_reader)
+        else:
+            datamodule = FinetuneDataModule(config, tokenizer, dataset_reader)
+        model = EncoderDecoder(config, tokenizer, model, dataset_reader)
+        logger = TensorBoardLogger(config.exp_dir, name="log")
+        profiler = SimpleProfiler(dirpath=config.exp_dir, filename="pl_profiler")
 
-    trainer = Trainer(
-        enable_checkpointing=False,
-        gpus=torch.cuda.device_count(),
-        precision=config.compute_precision,
-        amp_backend="native",
-        strategy=config.compute_strategy if config.compute_strategy != "none" else None,
-        logger=logger,
-        log_every_n_steps=4,
-        max_steps=config.num_steps,
-        min_steps=config.num_steps,
-        num_sanity_val_steps=-1 if config.eval_before_training else 0,
-        check_val_every_n_epoch=config.eval_epoch_interval,
-        accumulate_grad_batches=config.grad_accum_factor,
-        gradient_clip_val=config.grad_clip_norm,
-        profiler=profiler
-    )
+        trainer = Trainer(
+            enable_checkpointing=False,
+            gpus=torch.cuda.device_count(),
+            precision=config.compute_precision,
+            amp_backend="native",
+            strategy=config.compute_strategy if config.compute_strategy != "none" else None,
+            logger=logger,
+            log_every_n_steps=4,
+            max_steps=config.num_steps,
+            min_steps=config.num_steps,
+            num_sanity_val_steps=-1 if config.eval_before_training else 0,
+            check_val_every_n_epoch=config.eval_epoch_interval,
+            accumulate_grad_batches=config.grad_accum_factor,
+            gradient_clip_val=config.grad_clip_norm,
+            profiler=profiler
+        )
     
-    trainer.fit(model, datamodule)
+    with bench.track("trainer.fit()"):
+        trainer.fit(model, datamodule)
+
+    with bench.track("trainer.validate()"):
+        trainer.validate(model, dataloaders=datamodule.val_dataloader())
+
+    bench.summary()
 
 
 if __name__ == "__main__":
