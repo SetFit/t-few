@@ -6,7 +6,7 @@ from datetime import datetime
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.profiler import AdvancedProfiler
+from pytorch_lightning.profiler import SimpleProfiler
 from src.data import FinetuneDataModule, PretrainDataModule, get_dataset_reader
 from src.models.EncoderDecoder import EncoderDecoder
 from src.models.modify_model import modify_transformer
@@ -39,11 +39,9 @@ def main(config):
         datamodule = FinetuneDataModule(config, tokenizer, dataset_reader)
     model = EncoderDecoder(config, tokenizer, model, dataset_reader)
     logger = TensorBoardLogger(config.exp_dir, name="log")
-    profiler = AdvancedProfiler(dirpath=config.exp_dir, filename="infernece_time.txt")
+    profiler = SimpleProfiler(dirpath=config.exp_dir, filename="elapsed_time.txt")
 
-    profiler=AdvancedProfiler(dirpath=config.exp_dir, filename='inference_time.txt')
     trainer = Trainer(
-        profiler=profiler,
         enable_checkpointing=False,
         gpus=torch.cuda.device_count(),
         precision=config.compute_precision,
@@ -60,10 +58,8 @@ def main(config):
         profiler=profiler
     )
     
-    if config.num_steps > 0:
-        trainer.fit(model, datamodule)
+    trainer.fit(model, datamodule)
 
-    trainer.validate(model, datamodule, verbose=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
