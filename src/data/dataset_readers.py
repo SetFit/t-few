@@ -39,9 +39,11 @@ def get_dataset_reader(config):
         "tweet_eval_hate": RaftReader,
         "twitter_complaints": RaftReader,
         "semiconductor_org_types": RaftReader,
-        "sst2": SetFitGlueReader,
         "emotion": SetFitReader,
-        "ag_news": SetFitReader
+        "ag_news": SetFitReader,
+        "sst5": SetFitReader,
+        "SentEval-CR": SetFitReader,
+        "ag_news": SetFitReader,
     }[config.dataset]
     return dataset_class(config)
 
@@ -190,9 +192,10 @@ class BaseDatasetReader(object):
         return {"accuracy": accuracy}
 
 
-class SetFitReaderBase(BaseDatasetReader):
-    def __init__(self, config, dataset_stash):
-        super().__init__(config, dataset_stash=dataset_stash)
+class SetFitReader(BaseDatasetReader):
+    def __init__(self, config):
+        super().__init__(config, dataset_stash=(config.dataset,) \
+            if config.prompts_dataset is None else (config.prompts_dataset,))
         self.dataset = self.config.dataset
         self.num_shot = self.config.num_shot
         self.train_split = self.config.train_split
@@ -225,14 +228,6 @@ class SetFitReaderBase(BaseDatasetReader):
         for idx, example in enumerate(orig_train_split):
             example["idx"] = idx
         return orig_train_split
-
-class SetFitReader(SetFitReaderBase):
-    def __init__(self, config):
-        super().__init__(config, dataset_stash=(config.dataset,))
-
-class SetFitGlueReader(SetFitReaderBase):
-    def __init__(self, config):
-        super().__init__(config, dataset_stash=(("glue", config.dataset)))
 
 class StoryClozeReader(BaseDatasetReader):
     def __init__(self, config):
