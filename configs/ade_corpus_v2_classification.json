@@ -1,6 +1,7 @@
 {
-    "dataset": "SentEval-CR",
-    "prompts_dataset": "SetFit/SentEval-CR",
+    "dataset": "ade_corpus_v2_classification",
+    "prompts_dataset": "ade_corpus_v2",
+    "prompts_subset": "Ade_corpus_v2_classification",
     "batch_size": 1,
     "eval_batch_size": 2,
     "grad_accum_factor": 8,

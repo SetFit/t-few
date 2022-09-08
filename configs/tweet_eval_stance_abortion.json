@@ -1,0 +1,12 @@
+{
+    "dataset": "tweet_eval_stance",
+    "subset": "stance_abortion",
+    "prompts_dataset": "tweet_eval",
+    "prompts_subset": "stance_abortion",
+    "batch_size": 1,
+    "eval_batch_size": 2,
+    "grad_accum_factor": 8,
+    "length_norm": 1,
+    "mc_loss": 1,
+    "unlikely_loss": 1
+}

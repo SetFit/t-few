@@ -10,6 +10,7 @@ import pkg_resources
 from datasets import load_dataset, load_from_disk
 from promptsource import templates
 from promptsource.templates import DatasetTemplates
+from evaluate import load
 
 from scripts.utils import load_data_splits
 
@@ -44,6 +45,11 @@ def get_dataset_reader(config):
         "sst5": SetFitReader,
         "SentEval-CR": SetFitReader,
         "ag_news": SetFitReader,
+        "enron_spam": SetFitReader,
+        "tweet_eval_stance": SetFitReader,
+        "ade_corpus_v2_classification": SetFitReader,
+        "onestop_english": SetFitReader,
+        "amazon_counterfactual_en": SetFitMCCReader,
     }[config.dataset]
     return dataset_class(config)
 
@@ -194,9 +200,10 @@ class BaseDatasetReader(object):
 
 class SetFitReader(BaseDatasetReader):
     def __init__(self, config):
-        super().__init__(config, dataset_stash=(config.dataset,) \
-            if config.prompts_dataset is None else (config.prompts_dataset,))
+        super().__init__(config, dataset_stash=(config.dataset, config.subset) \
+            if config.prompts_dataset is None else (config.prompts_dataset, config.prompts_subset))
         self.dataset = self.config.dataset
+        self.subset = config.subset
         self.num_shot = self.config.num_shot
         self.train_split = self.config.train_split
         self.train_splits = None
@@ -207,10 +214,11 @@ class SetFitReader(BaseDatasetReader):
     #     pass
 
     def read_orig_dataset(self, split):
+        dataset_and_subset = self.dataset if self.subset is None else (self.dataset, self.subset)
         if self.train_splits is None or self.test_split is None:
             sample_sizes = [self.num_shot]
             self.train_splits, self.test_split = \
-                load_data_splits(dataset=self.dataset, sample_sizes=sample_sizes)
+                load_data_splits(dataset=dataset_and_subset, sample_sizes=sample_sizes)
 
         if split == "validation":
             orig_test_split = [example for example in self.test_split]
@@ -228,6 +236,15 @@ class SetFitReader(BaseDatasetReader):
         for idx, example in enumerate(orig_train_split):
             example["idx"] = idx
         return orig_train_split
+
+class SetFitMCCReader(SetFitReader):
+    def compute_metric(self, accumulated):
+        metric_fn = load("matthews_correlation")
+        y_pred = accumulated["prediction"]
+        y_test = accumulated["label"]
+        metrics = metric_fn.compute(predictions=y_pred, references=y_test)
+        return metrics
+
 
 class StoryClozeReader(BaseDatasetReader):
     def __init__(self, config):

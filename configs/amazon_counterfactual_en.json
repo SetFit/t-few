@@ -1,6 +1,6 @@
 {
-    "dataset": "SentEval-CR",
-    "prompts_dataset": "SetFit/SentEval-CR",
+    "dataset": "amazon_counterfactual_en",
+    "prompts_dataset": "SetFit/amazon_counterfactual_en",
     "batch_size": 1,
     "eval_batch_size": 2,
     "grad_accum_factor": 8,

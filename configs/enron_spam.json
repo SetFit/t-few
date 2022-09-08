@@ -1,6 +1,6 @@
 {
-    "dataset": "SentEval-CR",
-    "prompts_dataset": "SetFit/SentEval-CR",
+    "dataset": "enron_spam",
+    "prompts_dataset": "SetFit/enron_spam",
     "batch_size": 1,
     "eval_batch_size": 2,
     "grad_accum_factor": 8,

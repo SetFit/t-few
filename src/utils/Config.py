@@ -19,6 +19,7 @@ class Config(object):
 
         # Dataset Configs
         self.dataset = "sst2"
+        self.subset = None
         self.few_shot = True
         self.num_shot = 16
         self.few_shot_random_seed = 100
@@ -34,6 +35,7 @@ class Config(object):
         self.cleaned_answer_choices_b77 = False
         self.train_split = 0
         self.prompts_dataset = None
+        self.prompts_subset = None
 
         # Compute backend configs
         self.compute_precision = "bf16"
