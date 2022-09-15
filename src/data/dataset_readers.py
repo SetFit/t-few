@@ -12,7 +12,7 @@ from promptsource import templates
 from promptsource.templates import DatasetTemplates
 from evaluate import load
 
-from scripts.utils import load_data_splits
+from setfit.utils import load_data_splits
 
 
 def get_dataset_reader(config):
