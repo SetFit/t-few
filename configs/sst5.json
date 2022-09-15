@@ -1,6 +1,6 @@
 {
     "dataset": "sst5",
-    "prompts_dataset": "yelp_review_full",
+    "prompts_dataset": "SetFit/sst5",
     "batch_size": 1,
     "eval_batch_size": 2,
     "grad_accum_factor": 8,
