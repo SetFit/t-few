@@ -7,7 +7,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.profiler import SimpleProfiler
 
-from scripts.utils import Benchmark
+from setfit.utils import Benchmark
 from src.data import FinetuneDataModule, PretrainDataModule, get_dataset_reader
 from src.models.EncoderDecoder import EncoderDecoder
 from src.models.modify_model import modify_transformer
