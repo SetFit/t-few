@@ -22,9 +22,9 @@ def main(datasets):
                 return {"seq_len_wo_prompts": len(tok(row["text"], max_length=256, truncation=True)["input_ids"])}
 
             # Compute without prompts
-            split = split.map(compute_seq_len_wo_promtps, num_proc=6)
-            seq_lens_wo_prompts.extend(split["seq_len_wo_prompts"])
-            overall_seq_lens_wo_prompts.extend(split["seq_len_wo_prompts"])
+            split_wo_prompts = split.map(compute_seq_len_wo_promtps, num_proc=6)
+            seq_lens_wo_prompts.extend(split_wo_prompts["seq_len_wo_prompts"])
+            overall_seq_lens_wo_prompts.extend(split_wo_prompts["seq_len_wo_prompts"])
 
             ###############################################################################
             # Apply the prompt to the dataset
@@ -33,15 +33,15 @@ def main(datasets):
                 return {"text": result[0] + "" + result[1]}
 
             # Compute with prompts
-            split = split.map(add_prompt, num_proc=6)
+            split_w_prompts = split.map(add_prompt, num_proc=6)
 
             def compute_seq_len(row):
                 return {"seq_len": len(tok(row["text"], max_length=256, truncation=True)["input_ids"])}
 
             # Compute
-            split = split.map(compute_seq_len, num_proc=6)
-            seq_lens.extend(split["seq_len"])
-            overall_seq_lens.extend(split["seq_len"])
+            split_w_prompts = split_w_prompts.map(compute_seq_len, num_proc=6)
+            seq_lens.extend(split_w_prompts["seq_len"])
+            overall_seq_lens.extend(split_w_prompts["seq_len"])
 
         with_prompts_str = f"{config.dataset}:\n median: {np.median(seq_lens)}, mean: {np.mean(seq_lens)})\n"
         print(with_prompts_str)
