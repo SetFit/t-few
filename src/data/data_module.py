@@ -24,6 +24,16 @@ class FinetuneDataModule(LightningDataModule):
         else:
             self.train_dataset = self.dataset_reader.read_orig_dataset("train")
         self.dev_dataset = self.dataset_reader.read_orig_dataset("validation")
+
+        # print(f"self.dev_dataset[0]:\n {self.dev_dataset[0]}")
+        # print(f"self.train_dataset[0]:\n {self.train_dataset[0]}")
+        # print("train:")
+        # print(self.dataset_reader.get_train_template())
+        # print("eval:")
+        # print(self.dataset_reader.get_eval_template())
+        # print(self.dataset_reader.get_eval_template() == self.dataset_reader.get_train_template())
+        # exit()
+
         self.train_dataset = FinetuneDatasetWithTemplate(
             self.train_dataset, self.dataset_reader.get_train_template(), self.tokenizer
         )
@@ -70,7 +80,13 @@ class FinetuneDatasetWithTemplate(torch.utils.data.dataset.Dataset):
         else:
             template = self.templates
         example = self.dataset[key]
+        example["label"] = int(example["label"])
+        # print(f"template.jinja: {template.jinja}")
+        # print(f"template.get_answer_choices_list(example): {template.get_answer_choices_list(example)}")
+        # print(f"type(example): {type(example)}")
+        # print(f"example: {example}")
         input_str, target_str = template.apply(example)
+        # print(f"target_str: {target_str}")
 
         answer_choices = template.get_answer_choices_list(example)
         if isinstance(input_str, list):

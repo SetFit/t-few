@@ -10,6 +10,7 @@ class Config(object):
         self.exp_name = None
         self.allow_skip_exp = True
         self.seed = 42
+        # self.predict_thresh = None
 
         # Model Configs
         self.model = "EncDec"
@@ -36,6 +37,8 @@ class Config(object):
         self.train_split = 0
         self.prompts_dataset = None
         self.prompts_subset = None
+        self.unlabeled_examples = 1000
+        self.unlabeled_iterations = 40
 
         # Compute backend configs
         self.compute_precision = "bf16"

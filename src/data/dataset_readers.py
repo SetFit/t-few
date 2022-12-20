@@ -2,18 +2,125 @@ import csv
 import json
 import os
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import pkg_resources
-from datasets import load_dataset, load_from_disk
+from datasets import load_dataset, load_from_disk, Dataset, DatasetDict
 from promptsource import templates
 from promptsource.templates import DatasetTemplates
 from evaluate import load
 
-from setfit.utils import load_data_splits
+SEEDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
+from typing import Union, List
+
+class InputExample:
+    """
+    Structure for one input example with texts, the label and a unique id
+    """
+    def __init__(self, guid: str = '', texts: List[str] = None,  label: Union[int, float] = 0):
+        """
+        Creates one InputExample with the given texts, guid and label
+        :param guid
+            id for the example
+        :param texts
+            the texts for the example.
+        :param label
+            the label for the example
+        """
+        self.guid = guid
+        self.texts = texts
+        self.label = label
+
+    def __str__(self):
+        return "<InputExample> label: {}, texts: {}".format(str(self.label), "; ".join(self.texts))
+
+def sentence_pairs_generation(sentences, labels, pairs):
+    # Initialize two empty lists to hold the (sentence, sentence) pairs and
+    # labels to indicate if a pair is positive or negative
+
+    num_classes = np.unique(labels)
+    idx = [np.where(labels == i)[0] for i in num_classes]
+
+    for first_idx in range(len(sentences)):
+        current_sentence = sentences[first_idx]
+        label = labels[first_idx]
+        second_idx = first_idx
+        while second_idx == first_idx:
+            second_idx = np.random.choice(idx[np.where(num_classes == label)[0][0]])
+        positive_sentence = sentences[second_idx]
+        # Prepare a positive pair and update the sentences and labels
+        # lists, respectively
+        pairs.append(InputExample(texts=[current_sentence, positive_sentence], label=1))
+
+        negative_idx = np.where(labels != label)[0]
+        negative_sentence = sentences[np.random.choice(negative_idx)]
+        # Prepare a negative pair of sentences and update our lists
+        pairs.append(InputExample(texts=[current_sentence, negative_sentence], label=0))
+    # Return a 2-tuple of our sentence pairs and labels
+    return pairs
+
+
+def create_pairs_dataset(dataset, num_iterations: int=20) -> Dict[str, Dataset]:
+    # Randomly select `num_pairs` pairs from the test split,
+    # and assign them Yes (in-class) / No (out-of-class) labels.
+
+    x_train = dataset["text"]
+    y_train = dataset["label"]
+    examples = []
+
+    for _ in range(num_iterations):
+        pair_examples = sentence_pairs_generation(
+            np.array(x_train), np.array(y_train), examples
+        )
+
+    # Construct Dataset from examples
+    text_a_list, text_b_list, labels = [], [], []
+    for example in pair_examples:
+        text_a_list.append(example.texts[0])
+        text_b_list.append(example.texts[1])
+        labels.append(example.label)
+
+    pairs_dataset = Dataset.from_dict(dict(text_a=text_a_list, text_b=text_b_list, label=labels))
+    return pairs_dataset
+
+
+def create_samples(df: pd.DataFrame, sample_size: int, seed: int) -> pd.DataFrame:
+    """Samples a DataFrame to create an equal number of samples per class (when possible)."""
+    examples = []
+    for label in df["label"].unique():
+        subset = df.query(f"label == {label}")
+        if len(subset) > sample_size:
+            examples.append(subset.sample(sample_size, random_state=seed, replace=False))
+        else:
+            examples.append(subset)
+    return pd.concat(examples)
+    
+def create_fewshot_splits(dataset: Dataset, sample_sizes: List[int], dataset_name: str = None) -> DatasetDict:
+    """Creates training splits from the dataset with an equal number of samples per class (when possible)."""
+    splits_ds = DatasetDict()
+    df = dataset.to_pandas()
+
+    for sample_size in sample_sizes:
+        for idx, seed in enumerate(SEEDS):
+            split_df = create_samples(df, sample_size, seed)
+            splits_ds[f"train-{sample_size}-{idx}"] = Dataset.from_pandas(split_df, preserve_index=False)
+    return splits_ds
+
+
+def load_data_splits(
+    dataset: str, sample_sizes: List[int], pairs: bool=False) -> Tuple[DatasetDict, Dataset]:
+    """Loads a dataset from the Hugging Face Hub and returns the test split and few-shot training splits."""
+    print(f"\n\n\n============== {dataset} ============")
+    dataset = dataset.rstrip('_pairs')
+    # Load one of the SetFit training sets from the Hugging Face Hub
+    train_split = load_dataset(f"SetFit/{dataset}", split="train")
+    train_splits = create_fewshot_splits(train_split, sample_sizes)
+    test_split = load_dataset(f"SetFit/{dataset}", "test")
+    print(f"Test set: {len(test_split)}")
+    return train_splits, test_split
 
 def get_dataset_reader(config):
     dataset_class = {
@@ -48,6 +155,7 @@ def get_dataset_reader(config):
         "enron_spam": SetFitReader,
         "tweet_eval_stance": SetFitReader,
         "ade_corpus_v2_classification": SetFitReader,
+        "emotion_pairs": SetFitPairsReader,
         "onestop_english": SetFitReader,
         "amazon_counterfactual_en": SetFitMCCReader,
     }[config.dataset]
@@ -192,11 +300,79 @@ class BaseDatasetReader(object):
         np.random.set_state(saved_random_state)
         return selected_data
 
-    def compute_metric(self, accumulated):
-        matching = [a == b for a, b in zip(accumulated["prediction"], accumulated["label"])]
-        accuracy = sum(matching) / len(matching)
+    def compute_metric(self, accumulated, top_n_list=[10000, 5000, 3000, 2000, 1000]):
+        preds, labels, entropies = accumulated["prediction"], accumulated["label"], accumulated["entropy"]
+        print(f"entropies mean: {np.mean(entropies)}")
+
+        for top_n in top_n_list:
+            top_n_idx = np.argpartition(entropies, top_n)[:top_n]
+            matching = [a == b for (i, (a, b)) in enumerate(zip(preds, labels)) if i in top_n_idx]
+            accuracy = sum(matching) / len(matching)
+            print(f"top_n: {top_n}\n")
+            print(f"split: {self.config.train_split}, seed: {self.config.seed}, few_shot_random_seed: {self.config.few_shot_random_seed}")
+            print(f"\nTotal predictions below entropy threshold: {len(matching)}\n")
+            print(f"accuracy: {accuracy}\n")
+
+            # Write examples and their pseudo-labels to json
+            file_dir = os.path.join("data", "pseudolabeled", self.config.dataset, f"{self.config.num_shot}_shot", f"top_{top_n}")
+            if not os.path.exists(file_dir):
+                os.makedirs(file_dir)
+            file_path = os.path.join(file_dir, f"split_{self.config.train_split}_seed_{self.config.seed}_{accuracy}.json")
+
+            with open(file_path, 'w') as f:
+                pseudolabled_ex = [(i, pred) for i, pred in enumerate(preds) if i in top_n_idx]
+                json.dump({"dataset": "emotion", 
+                            "seed": self.config.seed,
+                            "iterations": self.config.unlabeled_iterations, 
+                            "split": "validation", 
+                            "num_examples": self.config.unlabeled_examples, 
+                            "examples": pseudolabled_ex,
+                            "train_steps": self.config.num_steps}, f)
+
         return {"accuracy": accuracy}
 
+class SetFitPairsReader(BaseDatasetReader):
+    def __init__(self, config):
+        super().__init__(config, dataset_stash=(config.dataset, config.subset) \
+            if config.prompts_dataset is None else (config.prompts_dataset, config.prompts_subset))
+        self.dataset = self.config.dataset
+        self.subset = config.subset
+        self.num_shot = self.config.num_shot
+        self.train_split = self.config.train_split
+        self.train_splits = None
+        self.test_split = None
+        self.unlabeled_examples = self.config.unlabeled_examples
+        self.unlabeled_iterations = self.config.unlabeled_iterations
+
+    def read_orig_dataset(self, split):
+        dataset_and_subset = self.dataset if self.subset is None else (self.dataset, self.subset)
+        if self.train_splits is None or self.test_split is None:
+            sample_sizes = [self.num_shot]
+            self.train_splits, self.test_split = \
+                load_data_splits(dataset=dataset_and_subset, sample_sizes=sample_sizes, pairs=True)
+
+            test_examples = self.test_split.shuffle().select(range(self.unlabeled_examples))
+            self.test_split = create_pairs_dataset(test_examples, self.unlabeled_iterations)
+            
+            for split_name, split_data in self.train_splits.items():
+                self.train_splits[split_name] = create_pairs_dataset(split_data)
+
+        if split == "validation":
+            orig_test_split = [example for example in self.test_split]
+            for idx, example in enumerate(orig_test_split):
+                example["idx"] = idx
+            return orig_test_split
+        else:
+            assert split == "train"
+            return self.train_splits
+
+    def read_few_shot_dataset(self):
+        train_splits = self.read_orig_dataset("train")
+        selected_train_split = train_splits[f"train-{self.num_shot}-{self.train_split}"]
+        orig_train_split = [example for example in selected_train_split]
+        for idx, example in enumerate(orig_train_split):
+            example["idx"] = idx
+        return orig_train_split
 
 class SetFitReader(BaseDatasetReader):
     def __init__(self, config):
@@ -208,10 +384,6 @@ class SetFitReader(BaseDatasetReader):
         self.train_split = self.config.train_split
         self.train_splits = None
         self.test_split = None
-
-    # def compute_metric(self, accumulated): 
-    #     # TODO: implement metrics other than "accuracy" for setfit dev/test datasets
-    #     pass
 
     def read_orig_dataset(self, split):
         dataset_and_subset = self.dataset if self.subset is None else (self.dataset, self.subset)

@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 import torch.distributed as dist
 from pytorch_lightning import LightningModule
+from scipy.stats import entropy
 from src.utils.get_optimizer import get_optimizer
 from src.utils.get_scheduler import get_scheduler
 from statistics import mean
@@ -210,6 +211,8 @@ class EncoderDecoder(LightningModule):
             choices_scores = torch.cat(all_choice_scores, dim=-1)
             pred_score, prediction = choices_scores.min(dim=1)
 
+        choices_entropy = entropy(choices_scores.cpu(), base=2, axis=1)
+
         score_gt = choices_scores[range(bs), labels]
         choices_scores[range(bs), labels] = choices_scores.max(dim=-1)[0]
         score_cand = choices_scores.min(dim=-1)[0]
@@ -220,6 +223,7 @@ class EncoderDecoder(LightningModule):
             "idx": batch["idx"].tolist(),
             "log.score_gt": score_gt.tolist(),
             "log.score_cand": score_cand.tolist(),
+            "entropy": choices_entropy.tolist()
         }
         return batch_output
 
