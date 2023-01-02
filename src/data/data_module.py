@@ -24,15 +24,7 @@ class FinetuneDataModule(LightningDataModule):
         else:
             self.train_dataset = self.dataset_reader.read_orig_dataset("train")
         self.dev_dataset = self.dataset_reader.read_orig_dataset("validation")
-
-        # print(f"self.dev_dataset[0]:\n {self.dev_dataset[0]}")
-        # print(f"self.train_dataset[0]:\n {self.train_dataset[0]}")
-        # print("train:")
-        # print(self.dataset_reader.get_train_template())
-        # print("eval:")
-        # print(self.dataset_reader.get_eval_template())
-        # print(self.dataset_reader.get_eval_template() == self.dataset_reader.get_train_template())
-        # exit()
+        self.unlabeled_dataset = self.dataset_reader.read_orig_dataset("unlabeled")
 
         self.train_dataset = FinetuneDatasetWithTemplate(
             self.train_dataset, self.dataset_reader.get_train_template(), self.tokenizer
@@ -40,8 +32,13 @@ class FinetuneDataModule(LightningDataModule):
         self.dev_dataset = FinetuneDatasetWithTemplate(
             self.dev_dataset, self.dataset_reader.get_eval_template(), self.tokenizer
         )
+        self.unlabeled_dataset = FinetuneDatasetWithTemplate(
+            self.unlabeled_dataset, self.dataset_reader.get_eval_template(), self.tokenizer
+        )        
+        
         print(f"Train size {len(self.train_dataset)}")
         print(f"Eval size {len(self.dev_dataset)}")
+        print(f"Unlabeled size {len(self.unlabeled_dataset)}")
 
     def train_dataloader(self):
         return torch.utils.data.DataLoader(
@@ -62,6 +59,14 @@ class FinetuneDataModule(LightningDataModule):
             num_workers=min([self.config.eval_batch_size, self.config.num_workers]),
         )
 
+    def unlabeled_dataloader(self):
+        return torch.utils.data.DataLoader(
+            self.unlabeled_dataset,
+            batch_size=self.config.eval_batch_size,
+            shuffle=False,
+            collate_fn=create_collate_fn(self.tokenizer.pad_token_id, pretrain=False),
+            num_workers=min([self.config.eval_batch_size, self.config.num_workers]),
+        )
 
 class FinetuneDatasetWithTemplate(torch.utils.data.dataset.Dataset):
     def __init__(self, dataset, templates, tokenizer, add_special_tokens=True):
@@ -81,12 +86,7 @@ class FinetuneDatasetWithTemplate(torch.utils.data.dataset.Dataset):
             template = self.templates
         example = self.dataset[key]
         example["label"] = int(example["label"])
-        # print(f"template.jinja: {template.jinja}")
-        # print(f"template.get_answer_choices_list(example): {template.get_answer_choices_list(example)}")
-        # print(f"type(example): {type(example)}")
-        # print(f"example: {example}")
         input_str, target_str = template.apply(example)
-        # print(f"target_str: {target_str}")
 
         answer_choices = template.get_answer_choices_list(example)
         if isinstance(input_str, list):

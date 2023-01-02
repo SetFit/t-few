@@ -64,8 +64,13 @@ def main(config):
     with bench.track("trainer.fit()"):
         trainer.fit(model, datamodule)
 
-    with bench.track("trainer.validate()"):
-        trainer.validate(model, dataloaders=datamodule.val_dataloader())
+    if config.unlabeled_examples is not None:
+        with bench.track("trainer.validate()"):
+            trainer.validate(model, dataloaders=datamodule.unlabeled_dataloader())
+
+    else:
+        with bench.track("trainer.validate()"):
+            trainer.validate(model, dataloaders=datamodule.val_dataloader())
 
     bench.summary()
 
