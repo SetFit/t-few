@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from pytorch_lightning import LightningDataModule
-
+import os
 
 class FinetuneDataModule(LightningDataModule):
     def __init__(self, config, tokenizer, dataset_reader):
@@ -25,6 +25,18 @@ class FinetuneDataModule(LightningDataModule):
             self.train_dataset = self.dataset_reader.read_orig_dataset("train")
         self.dev_dataset = self.dataset_reader.read_orig_dataset("validation")
         self.unlabeled_dataset = self.dataset_reader.read_orig_dataset("unlabeled")
+
+        # WRITE DEV DATASET
+        file_dir = os.path.join("data", "pseudolabeled", self.config.dataset, "0_shot", \
+                                f"seed_{self.config.seed}", f"{self.config.unlabeled_examples}_unlabeled", 
+                                f"{self.config.unlabeled_iterations}_iterations")
+        if not os.path.exists(file_dir):
+                os.makedirs(file_dir)
+
+        file_path = os.path.join(file_dir, f"split_{self.config.train_split}_20_samples.json")
+        with open(file_path, 'w') as f_out:
+            for example in self.unlabeled_dataset[:20]:
+                f_out.write(str(example))
 
         self.train_dataset = FinetuneDatasetWithTemplate(
             self.train_dataset, self.dataset_reader.get_train_template(), self.tokenizer

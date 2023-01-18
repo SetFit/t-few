@@ -9,6 +9,7 @@ from pytorch_lightning.profiler import SimpleProfiler
 
 from setfit.utils import Benchmark
 from src.data import FinetuneDataModule, PretrainDataModule, get_dataset_reader
+from src.data.dataset_readers import SetFitPairsReader
 from src.models.EncoderDecoder import EncoderDecoder
 from src.models.modify_model import modify_transformer
 from src.utils.Config import Config
@@ -36,6 +37,7 @@ def main(config):
     with bench.track("init"):
         tokenizer, model = get_transformer(config)
         dataset_reader = get_dataset_reader(config)
+
         if config.dataset == "T0Mixture":
             datamodule = PretrainDataModule(config, tokenizer, dataset_reader)
         else:

@@ -20,6 +20,7 @@ class Config(object):
 
         # Dataset Configs
         self.dataset = "sst2"
+        self.pairs = False
         self.subset = None
         self.few_shot = True
         self.num_shot = 16

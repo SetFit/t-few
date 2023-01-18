@@ -1,5 +1,4 @@
 {
-    "dataset": "emotion_pairs",
     "prompts_dataset": "pairs",
     "batch_size": 1,
     "eval_batch_size": 2,

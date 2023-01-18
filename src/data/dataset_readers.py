@@ -19,42 +19,45 @@ from typing import List
 
 
 def get_dataset_reader(config):
-    dataset_class = {
-        "T0Mixture": T0MixtureReader,
-        "rte": RTEReader,
-        "h-swag": HSwagReader,
-        "copa": COPAReader,
-        "wic": WiCReader,
-        "winogrande": WinograndeReader,
-        "cb": CBReader,
-        "storycloze": StoryClozeReader,
-        "anli-r1": ANLIR1Reader,
-        "anli-r2": ANLIR2Reader,
-        "anli-r3": ANLIR3Reader,
-        "wsc": WSCFixedReader,
-        "ade_corpus_v2": RaftReader,
-        "banking_77": RaftReader,
-        "terms_of_service": RaftReader,
-        "tai_safety_research": RaftReader,
-        "neurips_impact_statement_risks": RaftReader,
-        "overruling": RaftReader,
-        "systematic_review_inclusion": RaftReader,
-        "one_stop_english": RaftReader,
-        "tweet_eval_hate": RaftReader,
-        "twitter_complaints": RaftReader,
-        "semiconductor_org_types": RaftReader,
-        "emotion": SetFitReader,
-        "ag_news": SetFitReader,
-        "sst5": SetFitReader,
-        "SentEval-CR": SetFitReader,
-        "ag_news": SetFitReader,
-        "enron_spam": SetFitReader,
-        "tweet_eval_stance": SetFitReader,
-        "ade_corpus_v2_classification": SetFitReader,
-        "emotion_pairs": SetFitPairsReader,
-        "onestop_english": SetFitReader,
-        "amazon_counterfactual_en": SetFitMCCReader,
+    if config.pairs:
+        dataset_class = SetFitPairsReader
+    else:
+        dataset_class = {
+            "T0Mixture": T0MixtureReader,
+            "rte": RTEReader,
+            "h-swag": HSwagReader,
+            "copa": COPAReader,
+            "wic": WiCReader,
+            "winogrande": WinograndeReader,
+            "cb": CBReader,
+            "storycloze": StoryClozeReader,
+            "anli-r1": ANLIR1Reader,
+            "anli-r2": ANLIR2Reader,
+            "anli-r3": ANLIR3Reader,
+            "wsc": WSCFixedReader,
+            "ade_corpus_v2": RaftReader,
+            "banking_77": RaftReader,
+            "terms_of_service": RaftReader,
+            "tai_safety_research": RaftReader,
+            "neurips_impact_statement_risks": RaftReader,
+            "overruling": RaftReader,
+            "systematic_review_inclusion": RaftReader,
+            "one_stop_english": RaftReader,
+            "tweet_eval_hate": RaftReader,
+            "twitter_complaints": RaftReader,
+            "semiconductor_org_types": RaftReader,
+            "emotion": SetFitReader,
+            "ag_news": SetFitReader,
+            "sst5": SetFitReader,
+            "SentEval-CR": SetFitReader,
+            "ag_news": SetFitReader,
+            "enron_spam": SetFitReader,
+            "tweet_eval_stance": SetFitReader,
+            "ade_corpus_v2_classification": SetFitReader,
+            "onestop_english": SetFitReader,
+            "amazon_counterfactual_en": SetFitMCCReader
     }[config.dataset]
+
     return dataset_class(config)
 
 
@@ -140,7 +143,6 @@ class BaseDatasetReader(object):
                 if self.templates[template_name].metadata.original_task:
                     list_idx.append(idx)
                     list_templates.append(self.templates[template_name])
-            print(list_idx)
 
             return list_templates
         elif template_idx == -2:
@@ -206,7 +208,7 @@ class SetFitPairsReader(BaseDatasetReader):
     def __init__(self, config):
         super().__init__(config, dataset_stash=(config.dataset, config.subset) \
             if config.prompts_dataset is None else (config.prompts_dataset, config.prompts_subset))
-        self.dataset = self.config.dataset.rstrip("_pairs")
+        self.dataset = self.config.dataset
         self.subset = config.subset
         self.num_shot = 0 if config.num_steps == 0 else config.num_shot
         self.train_split_num = self.config.train_split
@@ -219,12 +221,12 @@ class SetFitPairsReader(BaseDatasetReader):
         dataset_and_subset = self.dataset if self.subset is None else (self.dataset, self.subset)
         if self.train_split is None or self.test_split is None or self.unlabeled_split is None:
             sample_sizes = [self.num_shot]
+
             train_splits, self.test_split, unlabeled_splits = \
                 load_data_splits(dataset=dataset_and_subset, sample_sizes=sample_sizes)
-
+                
             split_data = unlabeled_splits[f"unlabeled-{self.num_shot}-{self.train_split_num}"]
-            unlabeled_examples = split_data.shuffle().select(range(self.num_unlabeled_examples))
-
+            unlabeled_examples = split_data.select(range(self.num_unlabeled_examples))
             pairs_dataset = [ex for ex in create_pairs_dataset(unlabeled_examples, self.unlabeled_iterations)]
             for idx, example in enumerate(pairs_dataset):
                 example["idx"] = idx
@@ -268,24 +270,34 @@ class SetFitPairsReader(BaseDatasetReader):
 
             # Write examples and their pseudo-labels to json
             file_dir = os.path.join("data", "pseudolabeled", self.config.dataset, f"{self.num_shot}_shot", \
-                                    f"{self.config.unlabeled_examples}_unlabeled", f"{self.config.unlabeled_iterations}_iterations", \
+                                    f"seed_{self.config.seed}", f"{self.config.unlabeled_examples}_unlabeled", 
+                                    f"{self.config.unlabeled_iterations}_iterations", \
                                     f"top_{top_n}" + ("_all" if top_n == num_preds else ""))
                                     
             if not os.path.exists(file_dir):
                 os.makedirs(file_dir)
-            file_path = os.path.join(file_dir, f"split_{self.config.train_split}.json")
 
+            file_path = os.path.join(file_dir, f"seed_{self.config.seed}_split_{self.config.train_split}.json")
             with open(file_path, 'w') as f_out:
                 pseudolabled_ex = [(i, pred) for i, pred in enumerate(preds) if i in top_n_idx]
-                json.dump({"dataset": "emotion", 
-                            "seed": self.config.seed,
-                            "accuracy": accuracy,
-                            "iterations": self.config.unlabeled_iterations, 
-                            "split": "validation", 
-                            "num_examples": self.config.unlabeled_examples, 
-                            "examples": pseudolabled_ex,
-                            "train_steps": self.config.num_steps}, 
-                            f_out)
+                with open('debug-tfew.txt', 'w') as f:
+                    for i, pred in enumerate(preds):
+                        if i in top_n_idx:
+                            print(i, pred, file=f)
+                json.dump(
+                    {"dataset": self.dataset, 
+                    "seed": self.config.seed,
+                    "accuracy": accuracy,
+                    "iterations": self.config.unlabeled_iterations, 
+                    "split": "train",
+                    "train_split_num": self.train_split_num,
+                    "num_shot": self.num_shot,
+                    "num_examples": self.config.unlabeled_examples,
+                    "train_steps": self.config.num_steps,
+                    "top_n": top_n,
+                    "examples": pseudolabled_ex
+                    },
+                    f_out)
 
         return {"accuracy": accuracy}
 
