@@ -129,6 +129,14 @@ class Config(object):
 
         self.set_exp_dir()
 
+        self.pseudolabels_dir = os.path.join("data", "pseudolabeled", self.dataset, "0_shot", \
+            f"seed_{self.seed}", f"{self.unlabeled_examples}_unlabeled", f"{self.unlabeled_iterations}_iterations")
+        self.predictions_path = os.path.join(self.pseudolabels_dir, f"split_{self.train_split}_pseudolabeled.jsonl")
+        self.unlabeled_dataset_path = os.path.join(self.pseudolabels_dir, f"split_{self.train_split}_unlabeled.jsonl")
+
+        if not os.path.exists(self.pseudolabels_dir):
+            os.makedirs(self.pseudolabels_dir)
+
     def update_kwargs(self, kwargs, eval=True):
         for (k, v) in kwargs.items():
             if eval:

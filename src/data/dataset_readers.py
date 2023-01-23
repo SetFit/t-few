@@ -261,44 +261,39 @@ class SetFitPairsReader(BaseDatasetReader):
         num_preds = len(preds)
         top_n_list_valid = [num_preds] + [n for n in top_n_list if n < num_preds]
 
+        out_list = []
+        with open(self.config.unlabeled_dataset_path) as f_in:
+            for label, pred, entropy, data_row in zip(labels, preds, entropies, f_in):
+                data = json.loads(data_row)
+                out_list.append(dict(label=label, pred=pred, entropy=entropy, text_a=data["text_a"], text_b=data["text_b"]))
+
+        out_list.sort(key=lambda d: d['entropy'])
+        with open(self.config.predictions_path, 'w') as f_out:
+            f_out.write("\n".join(json.dumps(row) for row in out_list))
+
         for top_n in top_n_list_valid:
             top_n_idx = np.argpartition(entropies, top_n)[:top_n] if top_n != num_preds else range(top_n)
             matching = [a == b for (i, (a, b)) in enumerate(zip(preds, labels)) if i in top_n_idx]
             accuracy = sum(matching) / len(matching)
             print(f"split: {self.config.train_split}, top_n: {top_n} " + ("(ALL)\n" if top_n == num_preds else "\n"))
-            print(f"accuracy: {accuracy:.4f}\n")
+            print(f"accuracy: ", accuracy)
 
-            # Write examples and their pseudo-labels to json
-            file_dir = os.path.join("data", "pseudolabeled", self.config.dataset, f"{self.num_shot}_shot", \
-                                    f"seed_{self.config.seed}", f"{self.config.unlabeled_examples}_unlabeled", 
-                                    f"{self.config.unlabeled_iterations}_iterations", \
-                                    f"top_{top_n}" + ("_all" if top_n == num_preds else ""))
-                                    
-            if not os.path.exists(file_dir):
-                os.makedirs(file_dir)
-
-            file_path = os.path.join(file_dir, f"seed_{self.config.seed}_split_{self.config.train_split}.json")
+            file_path = os.path.join(self.config.pseudolabels_dir, \
+                f"split_{self.config.train_split}_top_{top_n}_acc={accuracy:.4f}.json")
             with open(file_path, 'w') as f_out:
-                pseudolabled_ex = [(i, pred) for i, pred in enumerate(preds) if i in top_n_idx]
-                with open('debug-tfew.txt', 'w') as f:
-                    for i, pred in enumerate(preds):
-                        if i in top_n_idx:
-                            print(i, pred, file=f)
                 json.dump(
-                    {"dataset": self.dataset, 
-                    "seed": self.config.seed,
-                    "accuracy": accuracy,
-                    "iterations": self.config.unlabeled_iterations, 
-                    "split": "train",
-                    "train_split_num": self.train_split_num,
-                    "num_shot": self.num_shot,
-                    "num_examples": self.config.unlabeled_examples,
-                    "train_steps": self.config.num_steps,
-                    "top_n": top_n,
-                    "examples": pseudolabled_ex
+                    {
+                        "dataset": self.dataset, 
+                        "seed": self.config.seed,
+                        "iterations": self.config.unlabeled_iterations, 
+                        "split": "train",
+                        "train_split_num": self.train_split_num,
+                        "num_shot": self.num_shot,
+                        "num_examples": self.config.unlabeled_examples,
+                        "train_steps": self.config.num_steps,
+                        "top_n": top_n,
                     },
                     f_out)
-
         return {"accuracy": accuracy}
 
         
