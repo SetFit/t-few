@@ -129,7 +129,7 @@ class Config(object):
 
         self.set_exp_dir()
 
-        self.pseudolabels_dir = os.path.join("data", "pseudolabeled", self.dataset, "0_shot", \
+        self.pseudolabels_dir = os.path.join("data", "pseudolabeled", self.dataset, f"{self.num_shot}_shot", \
             f"seed_{self.seed}", f"{self.unlabeled_examples}_unlabeled", f"{self.unlabeled_iterations}_iterations")
         self.predictions_path = os.path.join(self.pseudolabels_dir, f"split_{self.train_split}_pseudolabeled.jsonl")
         self.unlabeled_dataset_path = os.path.join(self.pseudolabels_dir, f"split_{self.train_split}_unlabeled.jsonl")

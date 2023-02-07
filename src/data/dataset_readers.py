@@ -228,6 +228,7 @@ class SetFitPairsReader(BaseDatasetReader):
             split_data = unlabeled_splits[f"unlabeled-{self.num_shot}-{self.train_split_num}"]
             unlabeled_examples = split_data.select(range(self.num_unlabeled_examples))
             pairs_dataset = [ex for ex in create_pairs_dataset(unlabeled_examples, self.unlabeled_iterations)]
+
             for idx, example in enumerate(pairs_dataset):
                 example["idx"] = idx
             self.unlabeled_split = pairs_dataset
@@ -280,6 +281,8 @@ class SetFitPairsReader(BaseDatasetReader):
 
             file_path = os.path.join(self.config.pseudolabels_dir, \
                 f"split_{self.config.train_split}_top_{top_n}_acc={accuracy:.4f}.json")
+            
+            print(f"Saving pseudolabels to \n{file_path}")
             with open(file_path, 'w') as f_out:
                 json.dump(
                     {
